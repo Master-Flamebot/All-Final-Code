@@ -1,0 +1,31 @@
+import time
+import serial
+from flask import Flask, render_template, request
+ser = serial.Serial('/dev/ttyACM0', 38400, writeTimeout = 0, timeout = 0)
+app = Flask(__name__)
+x = 0
+y = 0
+print('here')
+@app.route("/left/",methods=['GET'])
+def default():
+
+        if request.method == 'GET':
+                results = [89,89,89,0,0]
+                String = ['left','right','up','button1','button2']
+                for x in range(0, 5):
+                        results[x] = request.args.get(String[x], 'no val')
+                for x in range(0, 5):
+                        ser.write(results[x])
+                        print(results[x])
+                        ser.write(',')
+                ser.write('T')
+                time.sleep(.1)
+                line = ser.readline()
+                print(line)
+
+        return str(line)
+
+if __name__ == '__main__':
+        app.run(host='0.0.0.0', port=10, debug=True)
+
+

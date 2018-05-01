@@ -1,0 +1,254 @@
+import requests
+import pygame
+import time
+import pygame.camera
+from pygame.locals import *
+
+pygame.init()
+pygame.joystick.init()
+pygame.camera.init()
+j = pygame.joystick.Joystick(0)
+j.init()
+print ( j.get_name())
+
+display_width = 800
+display_height = 600
+
+black = (0,0,0)
+white = (255,255,255)
+
+red = (200,0,0)
+bright_red = (255,0,0)
+
+green = (0,200,0)
+bright_green = (0,255,0)
+
+gameDisplay = pygame.display.set_mode((display_width,display_height))
+pygame.display.set_caption("ROV")
+clock = pygame.time.Clock()
+
+pause = False
+temperature = ['0','0','0','0','0']
+cells = ['0','0','0']
+Axes = ['0','0','0','0']
+
+def text_objects(text, font):
+    textSurface = font.render(text, True, black)
+    return textSurface, textSurface.get_rect()
+
+def Axis():
+    for x in range(1, 4):
+        Axes[x] = j.get_axis(x)
+        Axes[x] = Axes[x] * -100
+        Axes[x] = Axes[x] = int(Axes[x])
+        Axes[x] = Axes[x] + 100
+        Axes[x] = Axes[x] * 180
+        Axes[x] = Axes[x] / 200
+    Axes[0] = 90
+
+def ROV_values():
+    global status
+    global temperature
+    global cells
+    
+    y = status.text
+    index = 0
+    Data = ['0','0','0','0','0','0','0','0','0']
+    
+    for x in range(len(status.text)):      
+            
+        if status.text[x] != ',':
+
+            Data[index] += status.text[x]
+            
+        elif status.text[x] == ',':
+            index += 1
+            if index == 9:
+                index = 0
+
+    for x in range(0, 5):
+        temperature[x] = Data[x]
+
+    for x in range(0, 3):
+        cells[x] = Data[x+5]
+            
+def Joysticks():
+    pygame.event.pump()
+
+    global Axes
+    global status
+
+    Buttons = ['0','0']
+    JoyDirection = ['rudundent','left','up','right']
+    ButtonVal = ['button1','button2']
+
+    for x in range(0, 2):
+        Buttons[x] = j.get_button(x)
+
+    Axis()
+    
+    ControllerStats1 = JoyDirection + ButtonVal
+    ControllerStats2 = Axes + Buttons
+    Dictionary1 = dict(zip(ControllerStats1,ControllerStats2))
+
+    payload = Dictionary1
+    status = requests.get('http://10.42.0.111:10/left/',params=payload)
+    #status = requests.get('http://10.42.0.111:10/status/')
+
+    #time.sleep(.2)
+
+    ROV_values()
+    
+def Joystick_values(leftvert_val,rightvert_val,righthorz_val):
+    global status
+    global temperature
+    global cells
+    font = pygame.font.SysFont(None, 25)
+    text = ['text0','text1','text2','text3','text4','text5','text6','text7']
+    LRU = ['left','right','up']
+    data = [0, 0, 0, 0, 0, 0, 0, 0]
+
+    
+
+    for x in range(0, 5):
+        text[x] = font.render("temp"+str(x+1)+": "+str(temperature[x]), True, black)
+
+    for x in range(0, 3):
+        text[x++5] = font.render("cell"+str(x+1)+": "+str(cells[x]), True, black)
+
+##    for x in range(0, 5):
+##        print (str(temperature[x]))
+##    
+##    for x in range(0, 3):
+##        print (str(cells[x]))
+
+##    for x in range(0, 5):
+##        data[x] = temperature[x]
+##
+##    for x in range(0, 3):
+##        data[x+5] = cells[x]
+
+    #print(status.text)
+    
+    LRU[0] = font.render("Left: "+str(leftvert_val), True, black)
+    LRU[1] = font.render("right: "+str(rightvert_val), True, black)
+    LRU[2] = font.render("up: "+str(righthorz_val), True, black)
+
+    for x in range(0, 5):
+        gameDisplay.blit(text[x],(100,(x*50)+150))
+    
+    for x in range(0, 3):
+        gameDisplay.blit(text[x+5],(300,(x*50)+150))
+
+    for x in range(0, 3):
+        gameDisplay.blit(LRU[x],((x*100),100))
+    
+def message_display(text):
+    largeText = pygame.font.Font('freesansbold.ttf',115)
+    TextSurf, TextRect = text_objects(text, largeText)
+    TextRect.center = ((display_width/2),(display_height/2))
+    gameDisplay.blit(TextSurf, TextRect)
+
+    pygame.display.update()
+
+    time.sleep(2)
+
+    game_loop()
+
+def button(msg,x,y,w,h,ic,ac,action=None):
+    mouse = pygame.mouse.get_pos()
+    click = pygame.mouse.get_pressed()
+ 
+    if x+w > mouse[0] > x and y+h > mouse[1] > y:
+        pygame.draw.rect(gameDisplay, ac,(x,y,w,h))
+        if click[0] == 1 and action != None:
+            action()
+
+    else:
+        pygame.draw.rect(gameDisplay, ic,(x,y,w,h))
+
+    smallText = pygame.font.Font("freesansbold.ttf",20)
+    textSurf, textRect = text_objects(msg, smallText)
+    textRect.center = ( (x+(w/2)), y+(h/2) )
+    gameDisplay.blit(textSurf, textRect)
+
+def quitgame():
+    pygame.quit()
+    quit()
+
+def unpause():
+    global pause
+    pause = False
+    
+def paused():
+
+    while pause:
+        for event in pygame.event.get():
+
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+
+        gameDisplay.fill(white)
+        largeText = pygame.font.Font('freesansbold.ttf',115)
+        TextSurf, TextRect = text_objects("Paused", largeText)
+        TextRect.center = ((display_width/2),(display_height/2))
+        gameDisplay.blit(TextSurf, TextRect)
+        
+        button("Continue",150,450,100,50,green,bright_green,unpause)
+        button("Quit",550,450,100,50,red,bright_red,quitgame)
+
+        pygame.display.update()
+        clock.tick(15)
+
+def game_intro():
+    intro = True
+
+    while intro:
+        for event in pygame.event.get():
+
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+
+        gameDisplay.fill(white)
+        largeText = pygame.font.Font('freesansbold.ttf',115)
+        TextSurf, TextRect = text_objects("ROV Test", largeText)
+        TextRect.center = ((display_width/2),(display_height/2))
+        gameDisplay.blit(TextSurf, TextRect)
+        
+        button("GO!",150,450,100,50,green,bright_green,game_loop)
+        button("Quit",550,450,100,50,red,bright_red,quitgame)       
+        
+        pygame.display.update()
+        clock.tick(15)
+
+def game_loop():
+    global pause
+    global Axes
+
+    gameExit = False
+
+    while not gameExit:
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+
+            if event.type == pygame.KEYDOWN:
+                
+                if event.key == pygame.K_p:
+                    pause = True
+                    paused()
+
+        Joysticks()
+        gameDisplay.fill(white)
+        Joystick_values(Axes[1],Axes[3],Axes[2])  
+        pygame.display.update()
+        clock.tick(60)
+
+game_intro()
+game_loop()
+pygame.quit()
+quit()
